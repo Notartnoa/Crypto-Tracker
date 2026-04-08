@@ -11,7 +11,7 @@ class CryptoController extends Controller
     {
         $response = Http::get('https://api.coingecko.com/api/v3/coins/markets', [
             'vs_currency' => 'usd',
-            'ids' => 'bitcoin,ethereum,solana,binancecoin,ripple,cardano,dogecoin,polkadot,fartcoin',
+            'ids' => 'bitcoin,ethereum,solana,binancecoin,ripple,cardano,dogecoin,polkadot,fartcoin,mantra, ethena, pendle',
             'order'       => 'market_cap_desc',
             'sparkline'   => false,
         ]);
