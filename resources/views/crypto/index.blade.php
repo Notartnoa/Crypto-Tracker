@@ -27,9 +27,6 @@
                 class="absolute top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg z-50 hidden overflow-hidden">
             </div>
         </div>
-        <div class="text-sm text-gray-400">
-            Auto refresh: <span id="countdown" class="text-blue-400 font-bold">60</span>s
-        </div>
     </nav>
 
     {{-- MAIN --}}
@@ -59,32 +56,43 @@
 
             {{-- List --}}
             <div id="coinList" class="overflow-y-auto flex-1">
-                @foreach ($coins as $index => $coin)
+                @forelse ($coins as $index => $coin)
                 <div class="coin-row grid grid-cols-4 px-4 py-3 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition"
                     onclick="loadChart('{{ $coin['id'] }}', '{{ $coin['name'] }}', '{{ $coin['symbol'] }}')"
-                    data-price="{{ $coin['current_price'] }}"
-                    data-change="{{ $coin['price_change_percentage_24h'] }}"
-                    data-cap="{{ $coin['market_cap'] }}">
+                    data-price="{{ $coin['current_price'] ?? 0 }}"
+                    data-change="{{ $coin['price_change_percentage_24h'] ?? 0 }}"
+                    data-cap="{{ $coin['market_cap'] ?? 0 }}">
                     <div class="flex items-center gap-3">
                         <span class="text-gray-500 text-xs w-5">{{ $index + 1 }}</span>
-                        <img src="{{ $coin['image'] }}" class="w-7 h-7 rounded-full" alt="{{ $coin['name'] }}">
+                        <img src="{{ $coin['image'] }}" class="w-7 h-7 rounded-full" alt="{{ $coin['name'] }}"
+                             onerror="this.src='https://via.placeholder.com/28'">
                         <div>
                             <p class="text-sm font-semibold">{{ $coin['name'] }}</p>
                             <p class="text-xs text-gray-500 uppercase">{{ $coin['symbol'] }}</p>
                         </div>
                     </div>
                     <div class="text-right text-sm self-center">
-                        ${{ number_format($coin['current_price'], 2) }}
+                        ${{ number_format($coin['current_price'] ?? 0, 2) }}
                     </div>
-                    <div class="text-right text-sm self-center font-medium {{ $coin['price_change_percentage_24h'] >= 0 ? 'text-green-400' : 'text-red-400' }}">
-                        {{ $coin['price_change_percentage_24h'] >= 0 ? '▲' : '▼' }}
-                        {{ number_format(abs($coin['price_change_percentage_24h']), 2) }}%
+                    <div class="text-right text-sm self-center font-medium {{ ($coin['price_change_percentage_24h'] ?? 0) >= 0 ? 'text-green-400' : 'text-red-400' }}">
+                        {{ ($coin['price_change_percentage_24h'] ?? 0) >= 0 ? '▲' : '▼' }}
+                        {{ number_format(abs($coin['price_change_percentage_24h'] ?? 0), 2) }}%
                     </div>
                     <div class="text-right text-xs text-gray-400 self-center">
-                        ${{ number_format($coin['total_volume'] / 1e6, 1) }}M
+                        ${{ number_format(($coin['total_volume'] ?? 0) / 1e6, 1) }}M
                     </div>
                 </div>
-                @endforeach
+                @empty
+                <div class="flex flex-col items-center justify-center h-64 text-gray-500 gap-3">
+                    <span class="text-5xl">📡</span>
+                    <p class="text-sm font-medium">Gagal memuat data koin</p>
+                    <p class="text-xs text-gray-600">CoinGecko API mungkin sedang rate limit</p>
+                    <button onclick="location.reload()"
+                        class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition">
+                        🔄 Coba Lagi
+                    </button>
+                </div>
+                @endforelse
             </div>
         </div>
 
@@ -115,7 +123,14 @@
 
             <div class="bg-gray-900 rounded-xl p-4 flex-1 flex flex-col overflow-hidden">
                 <p class="text-xs text-gray-500 mb-3 shrink-0">Candlestick Chart (OHLC)</p>
-                <div class="flex-1 relative">
+                <div id="chartLoading" class="hidden flex-1 flex items-center justify-center text-gray-500 text-sm">
+                    Memuat chart...
+                </div>
+                <div id="chartError" class="hidden flex-1 flex flex-col items-center justify-center text-gray-500 gap-2">
+                    <span class="text-3xl">⚠️</span>
+                    <p class="text-sm">Gagal memuat chart</p>
+                </div>
+                <div class="flex-1 relative" id="chartWrapper">
                     <canvas id="priceChart" class="absolute inset-0 w-full h-full"></canvas>
                 </div>
             </div>
@@ -131,17 +146,15 @@
         async function loadChart(id, name, symbol) {
             currentCoinId = id;
 
-            // Show panel
             const panel = document.getElementById('chartSidePanel');
             panel.classList.remove('hidden');
             panel.classList.add('flex');
             document.getElementById('coinListPanel').classList.remove('w-full');
             document.getElementById('coinListPanel').classList.add('w-1/2');
 
-            // Coin info
             const coin = allCoins.find(c => c.id === id);
             if (coin) {
-                document.getElementById('chartCoinImg').src    = coin.image;
+                document.getElementById('chartCoinImg').src            = coin.image;
                 document.getElementById('chartCoinName').textContent   = coin.name;
                 document.getElementById('chartCoinSymbol').textContent = coin.symbol;
                 document.getElementById('chartCoinPrice').textContent  = '$' + coin.current_price.toLocaleString();
@@ -151,68 +164,88 @@
                 changeEl.className   = 'text-sm font-medium ' + (change >= 0 ? 'text-green-400' : 'text-red-400');
             }
 
-            // Set active range btn default 7D
             setActiveRange(7);
             await fetchAndRender(id, 7);
         }
 
         // ── Fetch & Render Candlestick ────────────────────────────
         async function fetchAndRender(id, days) {
-            const res  = await fetch(`/chart/${id}?days=${days}`);
-            const ohlc = await res.json();
+            // Show loading
+            document.getElementById('chartLoading').classList.remove('hidden');
+            document.getElementById('chartLoading').classList.add('flex');
+            document.getElementById('chartWrapper').classList.add('hidden');
+            document.getElementById('chartError').classList.add('hidden');
 
-            // Format: [timestamp, open, high, low, close]
-            const candleData = ohlc.map(d => ({
-                x: d[0],
-                o: d[1],
-                h: d[2],
-                l: d[3],
-                c: d[4],
-            }));
+            try {
+                const res = await fetch(`/chart/${id}?days=${days}`);
+                const ohlc = await res.json();
 
-            if (chartInstance) chartInstance.destroy();
+                if (!ohlc || !Array.isArray(ohlc) || ohlc.length === 0) {
+                    throw new Error('Data kosong');
+                }
 
-            const ctx = document.getElementById('priceChart').getContext('2d');
+                const candleData = ohlc.map(d => ({
+                    x: d[0],
+                    o: d[1],
+                    h: d[2],
+                    l: d[3],
+                    c: d[4],
+                }));
 
-            chartInstance = new Chart(ctx, {
-                type: 'candlestick',
-                data: {
-                    datasets: [{
-                        label: currentCoinId,
-                        data: candleData,
-                        color: {
-                            up:   '#34d399',
-                            down: '#f87171',
-                            unchanged: '#9ca3af',
-                        },
-                        borderColor: {
-                            up:   '#34d399',
-                            down: '#f87171',
-                            unchanged: '#9ca3af',
-                        },
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: {
-                            type: 'timeseries',
-                            time: { unit: days <= 1 ? 'hour' : 'day' },
-                            ticks: { color: '#6b7280', maxTicksLimit: 10 },
-                            grid:  { color: '#1f2937' },
-                        },
-                        y: {
-                            ticks: {
-                                color: '#6b7280',
-                                callback: v => '$' + v.toLocaleString()
+                if (chartInstance) chartInstance.destroy();
+
+                document.getElementById('chartLoading').classList.add('hidden');
+                document.getElementById('chartLoading').classList.remove('flex');
+                document.getElementById('chartWrapper').classList.remove('hidden');
+
+                const ctx = document.getElementById('priceChart').getContext('2d');
+
+                chartInstance = new Chart(ctx, {
+                    type: 'candlestick',
+                    data: {
+                        datasets: [{
+                            label: currentCoinId,
+                            data: candleData,
+                            color: {
+                                up:        '#34d399',
+                                down:      '#f87171',
+                                unchanged: '#9ca3af',
                             },
-                            grid: { color: '#1f2937' },
+                            borderColor: {
+                                up:        '#34d399',
+                                down:      '#f87171',
+                                unchanged: '#9ca3af',
+                            },
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: {
+                                type: 'timeseries',
+                                time: { unit: days <= 1 ? 'hour' : 'day' },
+                                ticks: { color: '#6b7280', maxTicksLimit: 10 },
+                                grid:  { color: '#1f2937' },
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#6b7280',
+                                    callback: v => '$' + v.toLocaleString()
+                                },
+                                grid: { color: '#1f2937' },
+                            }
                         }
                     }
-                }
-            });
+                });
+
+            } catch (e) {
+                document.getElementById('chartLoading').classList.add('hidden');
+                document.getElementById('chartLoading').classList.remove('flex');
+                document.getElementById('chartError').classList.remove('hidden');
+                document.getElementById('chartError').classList.add('flex');
+            }
         }
 
         // ── Range Selector ───────────────────────────────────────
@@ -274,33 +307,29 @@
             if (q.length < 2) { searchResults.classList.add('hidden'); return; }
 
             searchTimer = setTimeout(async () => {
-                const res   = await fetch(`/search?q=${encodeURIComponent(q)}`);
-                const coins = await res.json();
-                if (!coins.length) { searchResults.classList.add('hidden'); return; }
+                try {
+                    const res   = await fetch(`/search?q=${encodeURIComponent(q)}`);
+                    const coins = await res.json();
+                    if (!coins.length) { searchResults.classList.add('hidden'); return; }
 
-                searchResults.innerHTML = coins.map(c => `
-                    <div class="flex items-center gap-3 px-4 py-2 hover:bg-gray-700 cursor-pointer text-sm"
-                        onclick="loadChart('${c.id}', '${c.name}', '${c.symbol}'); searchResults.classList.add('hidden'); searchInput.value='';">
-                        <img src="${c.thumb}" class="w-6 h-6 rounded-full">
-                        <span class="font-medium">${c.name}</span>
-                        <span class="text-gray-500 uppercase text-xs">${c.symbol}</span>
-                    </div>
-                `).join('');
-                searchResults.classList.remove('hidden');
+                    searchResults.innerHTML = coins.map(c => `
+                        <div class="flex items-center gap-3 px-4 py-2 hover:bg-gray-700 cursor-pointer text-sm"
+                            onclick="loadChart('${c.id}', '${c.name}', '${c.symbol}'); searchResults.classList.add('hidden'); searchInput.value='';">
+                            <img src="${c.thumb}" class="w-6 h-6 rounded-full" onerror="this.src='https://via.placeholder.com/24'">
+                            <span class="font-medium">${c.name}</span>
+                            <span class="text-gray-500 uppercase text-xs">${c.symbol}</span>
+                        </div>
+                    `).join('');
+                    searchResults.classList.remove('hidden');
+                } catch (e) {
+                    searchResults.classList.add('hidden');
+                }
             }, 400);
         });
 
         document.addEventListener('click', e => {
             if (!searchInput.contains(e.target)) searchResults.classList.add('hidden');
         });
-
-        // ── Auto Refresh ─────────────────────────────────────────
-        let seconds = 60;
-        setInterval(() => {
-            seconds--;
-            document.getElementById('countdown').textContent = seconds;
-            if (seconds <= 0) location.reload();
-        }, 1000);
     </script>
 
 </body>
