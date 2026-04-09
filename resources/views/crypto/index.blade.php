@@ -13,7 +13,6 @@
 
 <body class="bg-gray-950 text-white min-h-screen flex flex-col">
 
-    {{-- NAVBAR --}}
     <nav class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2">
             <span class="text-2xl">💰</span>
@@ -29,13 +28,10 @@
         </div>
     </nav>
 
-    {{-- MAIN --}}
     <div class="flex flex-1 overflow-hidden">
 
-        {{-- TABEL KIRI --}}
         <div id="coinListPanel" class="w-full flex flex-col overflow-hidden transition-all duration-300 border-r border-gray-800">
 
-            {{-- Sorting --}}
             <div class="flex gap-2 px-4 py-3 border-b border-gray-800 text-sm shrink-0">
                 <span class="text-gray-400 self-center">Sort by:</span>
                 <button onclick="sortCoins('market_cap')"
@@ -46,7 +42,6 @@
                     class="sort-btn px-3 py-1 rounded bg-gray-700 text-gray-300" data-sort="change">24h Change</button>
             </div>
 
-            {{-- Header --}}
             <div class="grid grid-cols-4 px-4 py-2 text-xs text-gray-500 border-b border-gray-800 shrink-0">
                 <span>#  Nama</span>
                 <span class="text-right">Harga</span>
@@ -54,7 +49,6 @@
                 <span class="text-right">Volume</span>
             </div>
 
-            {{-- List --}}
             <div id="coinList" class="overflow-y-auto flex-1">
                 @forelse ($coins as $index => $coin)
                 <div class="coin-row grid grid-cols-4 px-4 py-3 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition"
@@ -96,7 +90,6 @@
             </div>
         </div>
 
-        {{-- PANEL CHART KANAN --}}
         <div id="chartSidePanel" class="hidden w-1/2 p-6 flex-col overflow-hidden border-l border-gray-800">
             <div class="flex items-center gap-4 mb-4 shrink-0">
                 <img id="chartCoinImg" src="" class="w-10 h-10 rounded-full">
@@ -113,7 +106,6 @@
                 </div>
             </div>
 
-            {{-- Range Selector --}}
             <div class="flex gap-2 mb-4 shrink-0">
                 <button onclick="changeRange(1)"  class="range-btn px-3 py-1 rounded text-xs bg-gray-700 text-gray-300" data-range="1">1H</button>
                 <button onclick="changeRange(7)"  class="range-btn px-3 py-1 rounded text-xs bg-blue-600 text-white"   data-range="7">7D</button>
@@ -142,7 +134,6 @@
         let allCoins      = @json($coins);
         let currentCoinId = null;
 
-        // ── Load Chart ──────────────────────────────────────────────
         async function loadChart(id, name, symbol) {
             currentCoinId = id;
 
@@ -168,9 +159,7 @@
             await fetchAndRender(id, 7);
         }
 
-        // ── Fetch & Render Candlestick ────────────────────────────
         async function fetchAndRender(id, days) {
-            // Show loading
             document.getElementById('chartLoading').classList.remove('hidden');
             document.getElementById('chartLoading').classList.add('flex');
             document.getElementById('chartWrapper').classList.add('hidden');
@@ -248,7 +237,6 @@
             }
         }
 
-        // ── Range Selector ───────────────────────────────────────
         function changeRange(days) {
             setActiveRange(days);
             fetchAndRender(currentCoinId, days);
@@ -266,7 +254,6 @@
             }
         }
 
-        // ── Close Chart ──────────────────────────────────────────
         function closeChart() {
             const panel = document.getElementById('chartSidePanel');
             panel.classList.add('hidden');
@@ -277,7 +264,6 @@
             currentCoinId = null;
         }
 
-        // ── Sorting ──────────────────────────────────────────────
         function sortCoins(type) {
             document.querySelectorAll('.sort-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white');

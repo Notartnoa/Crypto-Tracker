@@ -16,7 +16,6 @@ class CryptoController extends Controller
 
     private function fetchCoins()
     {
-        // Cek cache dulu
         if (Cache::has('coins_list')) {
             return Cache::get('coins_list');
         }
@@ -33,7 +32,6 @@ class CryptoController extends Controller
             ]);
 
         if (!$response->successful()) {
-            // Kalau gagal, return cache lama kalau ada (even expired)
             return Cache::get('coins_list', []);
         }
 
@@ -51,7 +49,6 @@ class CryptoController extends Controller
         })->values()->toArray();
 
         if (!empty($coins)) {
-            // Simpan cache 3 menit
             Cache::put('coins_list', $coins, 180);
         }
 
